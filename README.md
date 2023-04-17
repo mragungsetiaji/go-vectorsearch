@@ -3,5 +3,8 @@ Vector Search Interface (supported: Redisearch)
 
 ```bash
 go run main.go
-[{vector:b 15.8861303329 map[timestamp:1681643500 title:Matrix 2]}]
+searching for movie index...
+[{movie_idx:b 19.0258750916 map[timestamp:1681692512 title:Matrix 2]}]
+searching for user index...
+[{user_idx:b 16.6258010864 map[timestamp:1681692512 username:Jane]}]
 ```
