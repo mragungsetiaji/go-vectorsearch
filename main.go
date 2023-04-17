@@ -33,7 +33,7 @@ func NewVectorSearch(client rueidis.Client, ctx context.Context, index string, s
 }
 
 func (vs *VectorSearch) Init() error {
-	builder := vs.client.B().Arbitrary("FT.CREATE", vs.index, "ON", "HASH", "PREFIX", "1", "vector:", "SCHEMA")
+	builder := vs.client.B().Arbitrary("FT.CREATE", vs.index, "ON", "HASH", "PREFIX", "1", vs.index+":", "SCHEMA")
 	for k, v := range vs.schema {
 		if v == "TAG" {
 			builder.Args(k, v, "SEPARATOR", ";")
@@ -54,7 +54,7 @@ func (vs *VectorSearch) Init() error {
 }
 
 func (vs *VectorSearch) Add(key string, vector []float32, properties map[string]string) error {
-	builder := vs.client.B().Hset().Key(fmt.Sprintf("vector:%s", key)).FieldValue().
+	builder := vs.client.B().Hset().Key(fmt.Sprintf("%s:%s", vs.index, key)).FieldValue().
 		FieldValue("v", rueidis.VectorString32(vector))
 	for k, v := range properties {
 		builder.FieldValue(k, v)
@@ -116,27 +116,27 @@ func main() {
 
 	ctx := context.Background()
 
+	// create movie index
 	schema := map[string]string{
 		"timestamp": "NUMERIC",
 		"title":     "TEXT",
 		"tags":      "TAG",
 	}
 
-	vs := NewVectorSearch(client, ctx, "idx", schema, "HNSW", DIM)
+	vs := NewVectorSearch(client, ctx, "movie_idx", schema, "HNSW", DIM)
 	if err := vs.Init(); err != nil {
 		panic(err)
 	}
 
-	ts := strconv.Itoa(int(time.Now().Unix()))
-	if err := vs.Add("a", generateRandomVector(DIM), map[string]string{"title": "Matrix", "timestamp": ts, "tags": "blue;green"}); err != nil {
+	if err := vs.Add("a", generateRandomVector(DIM), map[string]string{"title": "Matrix", "timestamp": generateTs(), "tags": "blue;green"}); err != nil {
 		panic(err)
 	}
 
-	ts = strconv.Itoa(int(time.Now().Unix()))
-	if err := vs.Add("b", generateRandomVector(DIM), map[string]string{"title": "Matrix 2", "timestamp": ts, "tags": "black;pink"}); err != nil {
+	if err := vs.Add("b", generateRandomVector(DIM), map[string]string{"title": "Matrix 2", "timestamp": generateTs(), "tags": "black;pink"}); err != nil {
 		panic(err)
 	}
 
+	fmt.Println("searching for movie index...")
 	resp, err := vs.Search(5, generateRandomVector(DIM), []string{"title", "timestamp"}, []string{"pink"})
 	if err != nil {
 		panic(err)
@@ -146,6 +146,38 @@ func main() {
 	// 	panic(err)
 	// }
 	fmt.Println(resp)
+
+	// create user index
+	schema = map[string]string{
+		"timestamp": "NUMERIC",
+		"username":  "TEXT",
+		"tags":      "TAG",
+	}
+
+	vs2 := NewVectorSearch(client, ctx, "user_idx", schema, "HNSW", DIM)
+	if err := vs2.Init(); err != nil {
+		panic(err)
+	}
+
+	if err := vs2.Add("a", generateRandomVector(DIM), map[string]string{"username": "John", "timestamp": generateTs(), "tags": "blue;green"}); err != nil {
+		panic(err)
+	}
+
+	if err := vs2.Add("b", generateRandomVector(DIM), map[string]string{"username": "Jane", "timestamp": generateTs(), "tags": "black;pink"}); err != nil {
+		panic(err)
+	}
+
+	fmt.Println("searching for user index...")
+	resp, err = vs2.Search(5, generateRandomVector(DIM), []string{"username", "timestamp"}, []string{"pink"})
+	if err != nil {
+		panic(err)
+	}
+
+	// if err := vs.Delete("matrix"); err != nil {
+	// 	panic(err)
+	// }
+
+	fmt.Println(resp)
 }
 
 func generateRandomVector(dim int) []float32 {
@@ -154,4 +186,8 @@ func generateRandomVector(dim int) []float32 {
 		vector[i] = rand.Float32()
 	}
 	return vector
+}
+
+func generateTs() string {
+	return strconv.Itoa(int(time.Now().Unix()))
 }
