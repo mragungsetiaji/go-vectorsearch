@@ -7,8 +7,6 @@ Example usage:
 package main
 
 import (
-	"context"
-	"fmt"
     "context"
 	
     "github.com/mragungsetiaji/go-vectorsearch"
